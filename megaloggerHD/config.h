@@ -12,14 +12,14 @@
 * Data logging options
 **************************************/
 // enable(1)/disable(0) data logging (if SD card is present)
-#define ENABLE_DATA_LOG 1
+#define ENABLE_DATA_LOG 0
 #define SD_CS_PIN SS
 
 /**************************************
 * Data streaming options
 **************************************/
 // enable(1)/disable(0) data streaming
-#define ENABLE_DATA_OUT 1
+#define ENABLE_DATA_OUT 0
 
 // uses software(1)/hardware(0) serial for data streaming
 #define RF_SERIAL Serial
@@ -33,7 +33,7 @@
 /**************************************
 * GPS configuration
 **************************************/
-#define USE_GPS 1
+#define USE_GPS 0
 #define GPSUART Serial2
 #define MAX_GPS_PROCESS_TIME 50 /* ms */
 #define GPS_DATA_TIMEOUT 2000 /* ms */
@@ -46,6 +46,13 @@
 **************************************/
 #define ACC_DATA_RATIO 10
 #define GYRO_DATA_RATIO 100
+
+/**************************************
+* Boost Gauge configuration
+**************************************/
+#define USE_BOOST 0
+#define BOOSTUART Serial2
+#define GPS_BAUDRATE 9600 /* bps */
 
 /**************************************
 * LCD module (uncomment only one)

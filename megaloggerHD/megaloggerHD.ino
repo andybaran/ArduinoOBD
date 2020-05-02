@@ -18,6 +18,7 @@
 #include "Narcoleptic.h"
 #include "images.h"
 #include "datalogger.h"
+#include "WiFiEsp.h"
 
 // logger states
 #define STATE_SD_READY 0x1
@@ -32,6 +33,14 @@
 #define GPSUART Serial2
 TinyGPS gps;
 #endif
+
+//setup serial3 for esp8266 AT WiFi
+#ifndef HAVE_HWSERIAL3
+#endif
+char ssid[] = "WeeFee";            // your network SSID (name)
+char pass[] = "s0n3w4ld!";        // your network password
+int status = WL_IDLE_STATUS;     // the Wifi radio's status
+WiFiEspClient client;           // Initialize the Ethernet client object
 
 
 static uint8_t lastFileSize = 0;
@@ -208,7 +217,7 @@ void initScreen()
 
     lcd.setFontSize(FONT_SIZE_MEDIUM);
     lcd.setCursor(208, 3);
-    lcd.print("Elapsed");
+    lcd.print("Boost");
     lcd.setCursor(204, 8);
     lcd.print("Distance");
     lcd.setCursor(180, 13);
@@ -600,6 +609,7 @@ void showStates()
     lcd.print("MEMS ");
     lcd.setColor((state & STATE_MEMS_READY) ? RGB16_GREEN : RGB16_RED);
     lcd.draw((state & STATE_MEMS_READY) ? tick : cross, 16, 16);
+    lcd.println();
 
 #if USE_GPS
     lcd.setColor(RGB16_WHITE);
@@ -653,6 +663,24 @@ void testOut()
       delay(500);
     }
     lcd.println();
+}
+
+void printWifiStatus()
+{
+  // print the SSID of the network you're attached to
+  lcd.print("SSID: ");
+  lcd.println(WiFi.SSID());
+
+  // print your WiFi shield's IP address
+  IPAddress ip = WiFi.localIP();
+  lcd.print("IP Address: ");
+  lcd.println(ip);
+
+  // print the received signal strength
+  long rssi = WiFi.RSSI();
+  lcd.print("Signal strength (RSSI):");
+  lcd.print(rssi);
+  lcd.println(" dBm");
 }
 
 void setup()
@@ -720,8 +748,41 @@ void setup()
     showStates();
 #endif
 
+#if USE_BOOST
+int mapsen = 26; // Set MAP sensor input on Analog port 0 
+float psiPabs; // for converting our value in mbar to psi
+char charPabs[5]; // for converting our value to a char * so we can draw it on the screen
+float boost_out_voltage; = analogRead(mapsen) / 1000.000000; //esp32 is reading in millivolts so let's convert to volts for our curve to work  *** will prob need to change this for arduino
+
+#endif
+
+    // initialize serial for esp8266 module
+    Serial3.begin(115200);
+    // initialize ESP module
+    WiFi.init(&Serial3);
+    
+    // check for the presence of the "shield"
+    if (WiFi.status() == WL_NO_SHIELD) {
+        lcd.println("WiFi shield not present");
+        // don't continue
+        while (true);
+    }
+
+    // attempt to connect to WiFi network
+    while ( status != WL_CONNECTED) {
+        lcd.print("Attempting to connect to WPA SSID: ");
+        lcd.println(ssid);
+        // Connect to WPA/WPA2 network
+        status = WiFi.begin(ssid, pass);
+    }
+
+    // you're connected now, so print out the data
+    lcd.println("You're connected to the network");
+    printWifiStatus();
+    lcd.println();
+
     // this will send a bunch of commands and display response
-    testOut();
+    // *** testOut(); remove this for testing
 
     // initialize the OBD until success
     while (!obd.init(OBD_PROTOCOL));
@@ -771,6 +832,7 @@ void loop()
     const byte pids2[] = {PID_COOLANT_TEMP, PID_INTAKE_TEMP, PID_ENGINE_FUEL_RATE};
     int values[sizeof(pids)] = {0};
     uint32_t pidTime = millis();
+
     // read multiple OBD-II PIDs
     byte results = obd.readPID(pids, sizeof(pids), values);
     pidTime = millis() - pidTime;
@@ -800,10 +862,14 @@ void loop()
         lcd.print(v, 1);
       }
 
+    //calculate boost
+    boost_out_voltage = analogRead(mapsen) / 1000.000000; //esp32 is reading in millivolts so let's convert to volts for our curve to work  *** will prob need to change this for arduino
+
+
       char buf[12];
-        // display elapsed time
-        unsigned int sec = (logger.dataTime - startTime) / 1000;
-        sprintf(buf, "%02u:%02u", sec / 60, sec % 60);
+        // display elapsed time ***replaced with boost gauge value
+       /* unsigned int sec = (logger.dataTime - startTime) / 1000;
+        sprintf(buf, "%02u:%02u", sec / 60, sec % 60);*/
         lcd.setFontSize(FONT_SIZE_MEDIUM);
         lcd.setCursor(220, 5);
         lcd.print(buf);
