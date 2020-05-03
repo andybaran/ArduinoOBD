@@ -749,13 +749,10 @@ void setup()
 #endif
 
 #if USE_BOOST
-int mapsen = 26; // Set MAP sensor input on Analog port 0 
-float psiPabs; // for converting our value in mbar to psi
-char charPabs[5]; // for converting our value to a char * so we can draw it on the screen
-float boost_out_voltage; = analogRead(mapsen) / 1000.000000; //esp32 is reading in millivolts so let's convert to volts for our curve to work  *** will prob need to change this for arduino
-
+    BOOSTUART.begin(BOOST_BAUDRATE)
 #endif
 
+#if WIFI
     // initialize serial for esp8266 module
     Serial3.begin(115200);
     // initialize ESP module
@@ -780,7 +777,7 @@ float boost_out_voltage; = analogRead(mapsen) / 1000.000000; //esp32 is reading 
     lcd.println("You're connected to the network");
     printWifiStatus();
     lcd.println();
-
+#endif
     // this will send a bunch of commands and display response
     // *** testOut(); remove this for testing
 
@@ -827,6 +824,13 @@ float boost_out_voltage; = analogRead(mapsen) / 1000.000000; //esp32 is reading 
 
 void loop()
 {
+    float psiPabs; // for converting our value in mbar to psi
+    char charPabs[5]; // for converting our value to a char * so we can draw it on the screen
+    float boost_out_voltage; // raw reading from sensor *** will prob need to change this for arduin
+    float Pabs; // calucated pressure in mbar as read from sensor
+    #define BOOSTUART Serial2
+    
+    
     static byte index2 = 0;
     const byte pids[]= {PID_RPM, PID_SPEED, PID_THROTTLE, PID_ENGINE_LOAD};
     const byte pids2[] = {PID_COOLANT_TEMP, PID_INTAKE_TEMP, PID_ENGINE_FUEL_RATE};
@@ -862,17 +866,19 @@ void loop()
         lcd.print(v, 1);
       }
 
-    //calculate boost
-    boost_out_voltage = analogRead(mapsen) / 1000.000000; //esp32 is reading in millivolts so let's convert to volts for our curve to work  *** will prob need to change this for arduino
+    //calculate boost in mbar
+    Pabs = analogRead(BOOSTUART); // 1000.000000; // read in boost *** will prob need to change this for arduino 
+    psiPabs = (Pabs / 68.948) - 14.696; // pressure in PSI minus standard atmospheric pressure
 
-
-      char buf[12];
+      //char buf[12];
         // display elapsed time ***replaced with boost gauge value
        /* unsigned int sec = (logger.dataTime - startTime) / 1000;
         sprintf(buf, "%02u:%02u", sec / 60, sec % 60);*/
         lcd.setFontSize(FONT_SIZE_MEDIUM);
         lcd.setCursor(220, 5);
-        lcd.print(buf);
+        lcd.print(psiPabs);
+        lcd.print(" ");
+        lcd.print(Pabs);
         // display OBD time
         if (results) {
           lcd.setCursor(380, 26);

@@ -51,8 +51,13 @@
 * Boost Gauge configuration
 **************************************/
 #define USE_BOOST 0
-#define BOOSTUART Serial2
-#define GPS_BAUDRATE 9600 /* bps */
+#define BOOSTUART A15
+#define BOOST_BAUDRATE 9600 /* bps */
+
+/**************************************
+* Boost Gauge configuration
+**************************************/
+#define WIFI 0
 
 /**************************************
 * LCD module (uncomment only one)
