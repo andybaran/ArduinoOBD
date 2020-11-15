@@ -12,6 +12,8 @@
 #include <MultiLCD.h>
 #include <TinyGPS.h>
 #include "config.h"
+#include "SparkFunBME280.h"
+
 #if ENABLE_DATA_LOG
 #include <SD.h>
 #endif
@@ -33,6 +35,27 @@
 #define GPSUART Serial2
 TinyGPS gps;
 #endif
+
+//setup boost gauge
+#define BOOSTUART Serial2 // boost gauge on A15
+float atmpressure;
+BME280 mySensor;
+float out_voltage;
+float Pabs;
+float inHgPabs;
+int piPabs;
+int mapsen = A0; // Set MAP sensor input on Analog port 0 
+unsigned long previousMillis = 0;
+const long interval = 250;
+int min = 20;
+int max = 0;
+typedef union {
+  int psiPabsInt;
+  byte psiPabsByte[4];
+} psiPabs;
+
+psiPabs psiDifference;
+
 
 //setup serial3 for esp8266 AT WiFi
 #ifndef HAVE_HWSERIAL3
@@ -273,6 +296,34 @@ void initScreen()
 
     fadeInScreen();
 }
+
+int readBoost() {
+    atmpressure = mySensor.readFloatPressure() * 0.0001450377;
+    
+    //out_voltage = analogRead(mapsen) * (5.0/1023);
+    out_voltage = random(0,5); //use for testing when not hooked up
+    
+    // Pabs =  311.1111111 * (out_voltage/4.97) - 1.333333333;
+    Pabs = 350.9389671 * (out_voltage/4.97) - 16.37323944;  //longshot see google sheet
+
+    // round(conver to from kPa to SPI) - round(ambient pressure + .5) so we can calc vacuum when needed
+    // Ambient  about .5 off from Bosch reading and I trust that sensor more
+    Pabs = round((Pabs / 6.894)) - round(atmpressure +.5);
+
+    if (Pabs < 0) {
+        inHgPabs = -1*(Pabs*2.036020657601236); //convert to inhg
+        psiDifference.psiPabsInt = round(inHgPabs);
+        piPabs = -psiDifference.psiPabsInt + 100; //Store value for pi before conversion to inHg; we add 100 to be lazy and not do 2's complement math on the other end
+
+    }
+    else {
+        psiDifference.psiPabsInt = round(Pabs);
+        piPabs = psiDifference.psiPabsInt;
+    }
+
+    return piPabs;
+}
+
 
 #if ENABLE_DATA_LOG
 bool checkSD()
@@ -821,14 +872,9 @@ void setup()
     lastRefreshTime = millis();
 }
 
-
 void loop()
 {
-    float psiPabs; // for converting our value in mbar to psi
-    char charPabs[5]; // for converting our value to a char * so we can draw it on the screen
-    float boost_out_voltage; // raw reading from sensor *** will prob need to change this for arduin
-    float Pabs; // calucated pressure in mbar as read from sensor
-    #define BOOSTUART Serial2
+   
     
     
     static byte index2 = 0;
@@ -867,16 +913,14 @@ void loop()
       }
 
     //calculate boost in mbar
-    Pabs = analogRead(BOOSTUART); // 1000.000000; // read in boost *** will prob need to change this for arduino 
-    psiPabs = (Pabs / 68.948) - 14.696; // pressure in PSI minus standard atmospheric pressure
-
       //char buf[12];
         // display elapsed time ***replaced with boost gauge value
        /* unsigned int sec = (logger.dataTime - startTime) / 1000;
         sprintf(buf, "%02u:%02u", sec / 60, sec % 60);*/
+        readBoost();
         lcd.setFontSize(FONT_SIZE_MEDIUM);
         lcd.setCursor(220, 5);
-        lcd.print(psiPabs);
+        lcd.print(piPabs);
         lcd.print(" ");
         lcd.print(Pabs);
         // display OBD time
